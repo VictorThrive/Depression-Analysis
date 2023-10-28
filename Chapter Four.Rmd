@@ -1,0 +1,395 @@
+---
+title: "Chapter four"
+author: "Arowolo Idowu Victor"
+date: "2023-02-24"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# Load the necessary packages
+my_packages <-c("tidyverse","likert","ggthemes","psych","GPArotation","ordinal","MASS","rcompanion","brant","DescTools")
+lapply(my_packages, require, character.only = TRUE)
+survey <- read.csv("dataset/survey.csv", stringsAsFactors = TRUE)
+survey$level <- factor(survey$level, levels = unique(c(100,200,300,400,500,600)))
+socio <- survey[,c(2:11,73,74)]
+```
+
+# CHAPTER FOUR
+
+## RESULT AND DISCUSSION
+
+## 4.0 DESCRIPTIVE STATISTICS
+
+### 4.1 SUMMARY STATISTICS
+
+#### 4.1.1 Demographic information
+
+```{r}
+ggplot(survey) +
+  geom_bar(aes(x = college), fill = c("grey","grey","grey","grey","grey","grey","grey","#ff5050","grey","grey")) +
+   labs(title = "Students reponse rate", subtitle = "college of physical sciences recorded 87 responses")+
+  ylab(label = "Number of respondent") +
+  xlab(label = "college") +
+  theme(
+  panel.background = element_rect(fill = "white")
+  )
+```
+
+```{r echo=FALSE}
+# demographic information
+summary(socio)
+
+```
+
+### 4.2 DATA VISUALIZATION
+
+#### 4.2.1 Students mental stess
+
+```{r echo=FALSE, paged.print=TRUE}
+# Measuring student mental stress in;
+table(survey$gender,survey$stress)
+
+```
+
+#### 4.2.2 Male mental state
+
+```{r}
+##1. Males
+survey %>%
+  filter(gender == "Male") %>%
+  ggplot() +
+  geom_bar(aes(x = stress, fill = stress)) + 
+   scale_fill_manual(values = c("Major" = "#ff5050",
+                                 "Very little" ="#00cccc")) +
+  labs(title = "Male student mental state", subtitle = "28 males suffers Major stress and 41 suffers Very little stress ")+
+  ylab(label = "Number of male") +
+  xlab(label = "stress level") +
+  theme(
+  panel.background = element_rect(fill = "white")
+  )
+```
+
+#### 4.2.3 Female mental state
+
+```{r}
+
+##2. Females
+survey %>%
+  filter(gender == "Female") %>%
+  ggplot() +
+  geom_bar(aes(x = stress, fill = stress)) + 
+  scale_fill_manual(values = c("Major" = "#ff5050",
+                                 "Very little" ="#00cccc")) +
+  labs(title = "Female student mental state", subtitle = "31 females suffers Major stress and 30 suffers Very little stress") +
+  ylab(label = "Number of female") +
+  xlab(label = "stress level") +
+  theme(
+  panel.background = element_rect(fill = "white")
+  )
+```
+
+#### 4.2.4 Students Mental state
+
+```{r}
+##3. comparing mental stress level in 1 and 2
+
+survey %>%
+  ggplot(aes(x = stress, fill = gender)) +
+  geom_bar( position = position_fill()) +
+  labs(title = "Students mental stress",subtitle = "There are variation in stress suffered by different gender") +
+  xlab(label = "stress level") +
+  ylab("Proportion") +
+  theme(
+  panel.background = element_rect(fill = "white")
+  ) +
+  geom_text(aes(label = scales::percent(..count../sum(..count..))),
+            stat = "count",
+            colour = "white",
+            position = position_fill(vjust = 0.5))
+
+```
+
+### 4.3 EXPLORATORY FACTOR ANALYSIS
+
+```{r}
+set.seed(42)
+
+#--------Sampling design--------
+stratified <- survey %>%
+  group_by(gender) %>%
+  sample_n(size = 100)
+
+# subseting required variables
+master <- stratified[,c(1,43:72)]
+
+##accuracy
+#summary(master[,-1])
+
+# handling missing data
+# replacing NA's with 3
+master[is.na(master)] <- 0
+
+##missing
+percentmissing <- function(x){ sum(is.na(x))/length(x) * 100}
+missing <- apply(master, 1, percentmissing)
+#table(missing)
+
+##outliers
+cutoff <- qchisq(1-.001,ncol(master))
+mahal <- mahalanobis(master[,-1],colMeans(master[,-1]),
+                     cov(master[,-1]))
+#cutoff ##cutoff score
+
+#summary(mahal < cutoff)
+
+##exclude outlier
+noout <- subset(master, mahal < cutoff)
+
+##additive
+correl <- cor(noout[,-1], use = "pairwise.complete.obs")
+#symnum(correl)
+#correl
+
+##assumption set up
+random <- rchisq(nrow(noout), 5)
+fake <- lm(random~., data = noout[,-1])
+
+standardized <- rstudent(fake)
+fitted <- scale(fake$fitted.values)
+
+## normality
+hist(standardized)
+
+##linearity
+qqnorm(standardized)
+abline(0,1)
+
+#homogeneity
+plot(fitted,standardized)
+abline(0,0)
+abline(v = 0)
+
+##running the EFA analysis
+
+##correlation adequacy Bartlett's test
+cor.test <- cortest.bartlett(correl, n = nrow(noout[,-1]))
+
+##sampling adequacy KMO test
+kmo <- KMO(correl)
+
+ ##how many factors?
+nofactors <- fa.parallel(noout, fm = "ml", fa = "fa")
+oldKaiser <- sum(nofactors$fa.values > 1.0) ##old kaiser criterion
+newKaiser <- sum(nofactors$fa.values > .7) ##new kaiser criterion
+
+##simple structure with a two factor model
+round1 <- fa(noout[,-1], nfactors = 2, rotate = "oblimin", fm = "ml")
+#round1
+round2 <- fa(noout[ , c(3,10,13,17,19,21,23:27,30,31)], nfactors = 2, rotate = "oblimin", fm = "ml")
+
+##simple structure with a three factor model
+round3 <- fa(noout[,-1], nfactors = 3, rotate = "oblimin", fm = "ml")
+#round3
+round4 <- fa(noout[ , c(3,10,12,13,16,17,19,21,23:27,30,31)], nfactors = 3, rotate = "oblimin", fm = "ml")
+
+##get cfi
+finalmodel <- round4
+model <- 1 - ((finalmodel$STATISTIC - finalmodel$dof)/(finalmodel$null.chisq - finalmodel$null.dof))
+
+##reliability
+factor1 <- c(3,13,17,21,27,31)
+factor2 <- c(19,23:26)
+factor3 <- c(12,16)
+alpha1 <- psych::alpha(noout[ ,factor1])
+alpha2 <-psych::alpha(noout[ ,factor2])
+alpha3 <-psych::alpha(noout[ ,factor3], check.keys = TRUE)
+
+##create new factor scores
+noout$f1 = apply(noout[ , factor1], 1, mean) #create average score
+noout$f2 = apply(noout[ , factor2], 1, mean) #create average score
+noout$f3 = apply(noout[ , factor3], 1, mean) #create average score
+
+Summarynewfacto <- summary(noout[,c(32:34)])
+sd1 <-sd(noout$f1)
+sd2 <- sd(noout$f2)
+sd3 <- sd(noout$f3)
+```
+
+Analysis
+
+    correlation adequacy barttletts test result
+    chisq = 809.436 , p.value = 6.962424e-25, df = 435
+
+    sampling adequacy kmo test
+    Kaiser-Meyer-Olkin factor adequacy
+    Call: KMO(r = correl)
+    Overall MSA =  0.58
+    MSA for each item =  E1   E2   E3   E4   E5   E6   E7   E8   E9  E10  E11 
+                         0.44 0.68 0.42 0.44 0.42 0.47 0.53 0.37 0.62 0.44 0.64 
+                         E12  E13  E14  E15  E16  E17  E18  E19  E20  E21  E22 
+                         0.68 0.34 0.45 0.45 0.60 0.59 0.66 0.59 0.63 0.38 0.51 
+                         E23  E24  E25  E26  E27  E28  E29  E30 
+                         0.56 0.69 0.71 0.61 0.51 0.52 0.74 0.68
+                         
+    Theorectica number of factors suggested = 3
+
+    Call: fa.parallel(x = noout, fm = "ml", fa = "fa")
+    Parallel analysis suggests that the number of factors =  4 
+
+    Old kasier suggested 2 factors
+    new kaisier suggested 3 factors
+
+
+    CFI = 0.9547
+
+    Factor Analysis using method =  ml
+    Call: fa(r = noout[, -1], nfactors = 3, rotate = "oblimin", fm = "ml")
+    Standardized loadings (pattern matrix) based upon correlation matrix
+
+                           ML2  ML3  ML1
+    SS loadings           1.88 1.79 1.31
+    Proportion Var        0.06 0.06 0.04
+    Cumulative Var        0.06 0.12 0.17
+    Proportion Explained  0.38 0.36 0.26
+    Cumulative Proportion 0.38 0.74 1.00
+
+     With factor correlations of 
+          ML2  ML3   ML1
+    ML2  1.00 0.29 -0.01
+    ML3  0.29 1.00  0.02
+    ML1 -0.01 0.02  1.00
+
+    Mean item complexity =  1.6
+    Test of the hypothesis that 3 factors are sufficient.
+
+    The degrees of freedom for the null model are  435  and the objective function was  4.57 with Chi Square of  809.44
+    The degrees of freedom for the model are 348  and the objective function was  2.38 
+
+    The root mean square of the residuals (RMSR) is  0.06 
+    The df corrected root mean square of the residuals is  0.07 
+
+    The harmonic number of observations is  189 with the empirical chi square  613.14  with prob <  6.6e-17 
+    The total number of observations was  189  with Likelihood Chi Square =  416.24  with prob <  0.007 
+
+    Tucker Lewis Index of factoring reliability =  0.767
+    RMSEA index =  0.032  and the 90 % confidence intervals are  0.018 0.043
+    BIC =  -1407.89
+    Fit based upon off diagonal values = 0.7
+    Measures of factor score adequacy             
+                                                       ML2  ML3  ML1
+    Correlation of (regression) scores with factors   0.87 0.83 1.00
+    Multiple R square of scores with factors          0.75 0.69 1.00
+    Minimum correlation of possible factor scores     0.50 0.39 0.99
+
+
+    alpha fit.off for new factors
+    factor1 = 0.9823171
+    factor2 = 0.988517
+    factor3 = 1 
+
+    Summary statistics of new factors
+           f1              f2              f3        
+     Min.   :0.000   Min.   :0.000   Min.   :0.0000  
+     1st Qu.:2.000   1st Qu.:0.200   1st Qu.:0.0000  
+     Median :3.000   Median :0.800   Median :0.0000  
+     Mean   :2.847   Mean   :1.182   Mean   :0.7778  
+     3rd Qu.:3.667   3rd Qu.:1.800   3rd Qu.:1.5000  
+     Max.   :5.000   Max.   :4.000   Max.   :5.0000 
+     
+     standard deviation 
+     factor 1 = 1.1711
+     factor 2 = 1.0534
+     factor 3 = 1.1661
+     
+     Grouping of new factors
+
+### 4.4 ORDINAL LOGISTIC REGRESSION
+
+```{r}
+set.seed(100)
+my_data <- inner_join(stratified[,c(1,3,9,73,74)], noout[,c(1,32:34)], by = c("X" = "X"))
+my_data$f1 <- round(my_data$f1)
+my_data$f2 <- ceiling(my_data$f2)
+my_data$f3 <- round(my_data$f3)
+#summary(my_data)
+
+my_data$f1 <- factor(my_data$f1,
+                   levels = c(0,1,2,3,4,5),
+                   labels = c("Not Applicable",
+                              "Strongly Agree",
+                              "Agree","Neutral",
+                              "Disagree",
+                              "Strongly Disagree"))
+my_data$f2 <- factor(my_data$f2,
+                   levels = c(0,1,2,3,4,5),
+                   labels = c("Not Applicable",
+                              "Strongly Agree",
+                              "Agree","Neutral",
+                              "Disagree",
+                              "Strongly Disagree"))
+my_data$f3 <- factor(my_data$f3,
+                   levels = c(0,1,2,3,4,5),
+                   labels = c("Not Applicable",
+                              "Strongly Agree",
+                              "Agree","Neutral",
+                              "Disagree",
+                              "Strongly Disagree"))
+
+my_data$C.G.P <- factor(my_data$C.G.P,
+                           levels = unique(c("4.5- 5.0","3.5 - 4.4","2.5 - 3.4","1.5- 2.4")),
+                   labels = c("First class","Second class","Second class lower","Third class"))
+
+# exploration
+summary(my_data[,-1])
+
+
+attach(my_data)
+# OLR using ordinal package
+#### model null
+modelnull <- clm(as.factor(C.G.P) ~ 1,
+                 dataa = my_data,
+                 link = "logit")
+
+#### model1
+model1 <- clm(as.factor(C.G.P) ~ as.factor(stress) + as.factor(gender),
+                 data = my_data,
+                 link = "logit")
+anova(modelnull,model1)
+
+nagelkerke(fit = model1, null = modelnull)
+
+summary(model1)
+confint(model1)
+exp(coef(model1))
+exp(confint(model1))
+model1$fitted.values
+fit <- predict(model1)
+# test of goodness
+chisq.test(my_data$C.G.P,unlist(predict(model1)))
+#Compute confusion table and misclassification error
+predictOLR <- predict(model1, my_data)
+ctab <- table(predictOLR, fit)
+ctab
+mean(as.character(my_data$C.G.P) != as.character(predictOLR))
+(CCR <- sum(diag(cTab)) / sum(cTab)) # Calculate the classification rate
+
+# Load the DescTools package for calculate the R square
+# library("DescTools")
+# Calculate the R Square
+# PseudoR2(OLRmodel, which = c("CoxSnell","Nagelkerke","McFadden"))
+# We can use the coef() function to check the parameter estimates
+(OLRestimates <- coef(summary(OLRmodel)))
+# Add the p-value to our parameter estimates table
+p <- pnorm(abs(OLRestimates[, "t value"]), lower.tail = FALSE) * 2
+# (OLRestimates_P <- cbind(OLRestimates, "p value" = p))
+# Bulding the newpatient entry to test our model
+newpatient <- data.frame("subject" = 1, "Impairment" = NA, "ses" = "high", "lifeevents"=3)
+# Use predict function to predict the patient's situation
+predict(OLRmodel,newpatient)
+
+# Calculate the R Square
+PseudoR2(model1, which = c("CoxSnell","Nagelkerke","McFadden"))
+# We can use the coef() function to check the parameter estimates
+(OLRestimates <- coef(summary(model1)))
+```

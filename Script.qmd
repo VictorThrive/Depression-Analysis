@@ -1,0 +1,83 @@
+---
+title: "OLR"
+format: docx
+editor: visual
+---
+
+```{r}
+#| warning: false
+#| 
+library(ordinal)
+library(MASS)
+library(brant)
+library(rcompanion)
+library(gt)
+library(skimr)
+head(my_data)
+# prepare a copy of the data
+ORL_df <-  my_data
+
+# model null
+model0 <- clm(as.factor(C.G.P) ~ 1, data = my_data, link = "logit")
+
+#model1
+model1 <- clm(as.factor(C.G.P) ~ as.factor(f1) + as.factor(f2) + as.factor(f3), data = my_data, link = "logit")
+
+# model fit
+fit <- anova(model0,model1)
+nage <-nagelkerke(fit = model1,
+           null = model0)
+# confidence interval
+confint(model1)
+# odds ratio
+exp(coef(model1))
+exp(confint(model1))
+# checking th effcet of ach iv 
+
+# the effect estimate of each predictor and the most significant factor 
+# measure the strength of the effect or strength of relationship
+summary(model1)
+model1$coefficients
+p
+# prediction accuracy and precision
+
+# Create the confusion table
+cft <- table(predicted, actual)
+
+# Calculate precision
+prec <- (diag(cft) / colSums(cft))
+
+
+# second model
+
+#model1
+model2 <- clm(as.factor(C.G.P) ~ as.factor(gender) + as.factor(age) + as.factor(stress_level), data = my_data, link = "logit")
+
+# model fit
+fit2 <- anova(model0,model2)
+nage2 <-nagelkerke(fit = model2,
+           null = model0)
+# confidence interval
+confint(model2)
+# odds ratio
+exp(coef(model2))
+exp(confint(model2))
+# checking th effcet of ach iv 
+
+# the effect estimate of each predictor and the most significant factor 
+# measure the strength of the effect or strength of relationship
+summary(model2)
+
+# Level of Depression by gender
+ table1 <-tibble(table(survey$gender,survey$stress_level))
+
+
+
+
+
+#data summary
+my_data |> skim()
+skim(socio)
+skim(my_data)
+p2+ptheme +coord_flip()
+```

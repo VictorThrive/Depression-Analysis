@@ -1,0 +1,7 @@
+---
+title: "Ordinal Logistic Regression"
+format: docx
+editor: visual
+---
+
+## 
